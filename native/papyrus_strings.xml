@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="papyrus_service_desc">블루투스 키보드를 누를 때 효과음을 재생합니다. 입력 내용은 저장하거나 전송하지 않고, 소리 재생에만 사용합니다.</string>
+</resources>

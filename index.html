@@ -50,6 +50,8 @@ input[type=range]{flex:1;accent-color:var(--accent);height:32px}
 .check input{width:22px;height:22px;accent-color:var(--accent)}
 .small{padding:12px 16px;border:3px solid var(--line);background:transparent;color:var(--ink);font-weight:600;border-radius:0;cursor:pointer}
 .small:active{transform:translateY(2px)}
+#bg{margin-top:28px;border-top:3px solid var(--line);padding-top:18px}
+#bg h2{font-size:16px;margin:0 0 6px}
 </style>
 </head>
 <body>
@@ -75,6 +77,12 @@ input[type=range]{flex:1;accent-color:var(--accent);height:32px}
       <div><button class="small" id="test" type="button">소리 테스트</button></div>
     </div>
     <p class="hint">원본 팩은 스페이스바가 무음이에요. 엔터·백스페이스·방향키·펑션키 등은 각각 다른 소리가 나요.</p>
+  </section>
+  <section id="bg" hidden>
+    <h2>다른 앱에서도 소리 내기</h2>
+    <p class="hint" id="bgstate"></p>
+    <button class="small" id="bgbtn" type="button">접근성 설정 열기</button>
+    <p class="hint">설정 → 접근성 → 설치된 앱(다운로드한 앱)에서 파피루스 타자기를 켜세요. 키 입력은 소리 재생에만 쓰고 저장하거나 전송하지 않아요.</p>
   </section>
 </main>
 
@@ -165,11 +173,11 @@ async function start(){
 }
 
 document.addEventListener("keydown", e => {
-  if (!ready || e.repeat) return;
+  if ((!ready && !svcOn) || e.repeat) return;
   const name = soundFor(e);
   const label = e.code || e.key || "Key";
   $("last").innerHTML = "<b>♥</b> " + label.replace(/[<>&]/g, "") + " → " + (name ? name + ".wav" : "무음");
-  if (name) play(name);
+  if (name && !svcOn) play(name);
   const t = e.target;
   const typing = t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.tagName === "BUTTON");
   if (!typing && (e.code === "Space" || e.code.startsWith("Arrow"))) e.preventDefault();
@@ -180,11 +188,38 @@ document.addEventListener("visibilitychange", () => {
 });
 
 $("start").addEventListener("click", start);
-$("vol").addEventListener("input", e => { prefs.vol = +e.target.value; applyVol(); savePrefs(); });
-$("spc").addEventListener("change", e => { prefs.spc = e.target.checked; savePrefs(); });
+$("vol").addEventListener("input", e => { prefs.vol = +e.target.value; applyVol(); savePrefs(); pushPrefs(); });
+$("spc").addEventListener("change", e => { prefs.spc = e.target.checked; savePrefs(); pushPrefs(); });
 $("test").addEventListener("click", () => {
   [0, 120, 240].forEach(t => setTimeout(() => play("papyrus"), t));
 });
+
+let svcOn = false;
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const Native = NATIVE ? window.Capacitor.registerPlugin("PapyrusNative") : null;
+function pushPrefs(){
+  if (!Native) return;
+  try {
+    Native.setVolume({ value: prefs.vol / 100 }).catch(() => {});
+    Native.setSpace({ value: !!prefs.spc }).catch(() => {});
+  } catch (e) {}
+}
+async function refreshSvc(){
+  if (!Native) return;
+  let on = false;
+  try { on = !!(await Native.isEnabled()).enabled; } catch (e) {}
+  svcOn = on;
+  $("bgstate").textContent = on ? "켜짐: 다른 앱을 쓰는 중에도 키보드 소리가 나요." : "꺼짐: 아래 버튼으로 접근성 설정에서 켜 주세요.";
+  if (on) { $("gate").hidden = true; $("app").hidden = false; }
+  else if (!ready) { $("gate").hidden = false; $("app").hidden = true; }
+}
+if (Native) {
+  $("bg").hidden = false;
+  $("bgbtn").addEventListener("click", () => { Native.openSettings().catch(() => {}); });
+  pushPrefs();
+  refreshSvc();
+  setInterval(refreshSvc, 2000);
+}
 if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {})); }
 </script>
 </body>
