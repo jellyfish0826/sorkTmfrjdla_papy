@@ -50,14 +50,43 @@ input[type=range]{flex:1;accent-color:var(--accent);height:32px}
 .check input{width:22px;height:22px;accent-color:var(--accent)}
 .small{padding:12px 16px;border:3px solid var(--line);background:transparent;color:var(--ink);font-weight:600;border-radius:0;cursor:pointer}
 .small:active{transform:translateY(2px)}
-#bg{margin-top:28px;border-top:3px solid var(--line);padding-top:18px}
-#bg h2{font-size:16px;margin:0 0 6px}
+#bg{margin:0 0 22px;border:3px solid var(--line);padding:14px}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.switchrow strong{font-size:16px}
+.switchrow .hint{margin:4px 0 0}
+.switch{flex:0 0 auto;width:60px;height:34px;border:3px solid var(--line);background:transparent;border-radius:0;position:relative;padding:0;cursor:pointer}
+.switch span{position:absolute;top:3px;left:3px;width:22px;height:22px;background:var(--ink);transition:transform .15s}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"] span{transform:translateX(26px);background:#fff}
+#bghelp{margin-top:12px}
+#bghelp ol{margin:0 0 10px;padding-left:20px;font-size:14px;color:var(--muted)}
+#bghelp .small{margin:0 8px 8px 0}
 </style>
 </head>
 <body>
 <main>
   <h1>NYEH HEH HEH!</h1>
   <p class="sub">블루투스 키보드로 타이핑하면 파피루스가 말해요.</p>
+
+  <section id="bg" hidden>
+    <div class="switchrow">
+      <div>
+        <strong>백그라운드에서도 사용</strong>
+        <p class="hint" id="bgstate"></p>
+      </div>
+      <button class="switch" id="bgsw" type="button" role="switch" aria-checked="false" aria-label="백그라운드에서도 사용"><span></span></button>
+    </div>
+    <div id="bghelp" hidden>
+      <p class="hint">안드로이드 보안 규칙상 앱이 이 스위치를 스스로 켤 수는 없어요. 스위치를 누르면 접근성 설정이 열리니 거기서 켜 주세요.</p>
+      <ol>
+        <li>접근성 → 설치된 앱(다운로드한 앱) → 파피루스 타자기를 켬</li>
+        <li>"제한된 설정"이라고 막히면 아래 "앱 정보 열기" → 오른쪽 위 ⋮ → "제한된 설정 허용" → 다시 1번</li>
+      </ol>
+      <button class="small" id="bgset" type="button">접근성 설정 열기</button>
+      <button class="small" id="bgapp" type="button">앱 정보 열기</button>
+    </div>
+    <p class="hint" id="bgdiag"></p>
+  </section>
 
   <section id="gate">
     <button class="big" id="start" type="button">시작하기</button>
@@ -77,12 +106,6 @@ input[type=range]{flex:1;accent-color:var(--accent);height:32px}
       <div><button class="small" id="test" type="button">소리 테스트</button></div>
     </div>
     <p class="hint">원본 팩은 스페이스바가 무음이에요. 엔터·백스페이스·방향키·펑션키 등은 각각 다른 소리가 나요.</p>
-  </section>
-  <section id="bg" hidden>
-    <h2>다른 앱에서도 소리 내기</h2>
-    <p class="hint" id="bgstate"></p>
-    <button class="small" id="bgbtn" type="button">접근성 설정 열기</button>
-    <p class="hint">설정 → 접근성 → 설치된 앱(다운로드한 앱)에서 파피루스 타자기를 켜세요. 키 입력은 소리 재생에만 쓰고 저장하거나 전송하지 않아요.</p>
   </section>
 </main>
 
@@ -206,16 +229,27 @@ function pushPrefs(){
 }
 async function refreshSvc(){
   if (!Native) return;
-  let on = false;
-  try { on = !!(await Native.isEnabled()).enabled; } catch (e) {}
+  let st = { enabled: false, connected: false, count: 0 };
+  try { st = await Native.getStatus(); } catch (e) {}
+  const on = !!(st.enabled && st.connected);
   svcOn = on;
-  $("bgstate").textContent = on ? "켜짐: 다른 앱을 쓰는 중에도 키보드 소리가 나요." : "꺼짐: 아래 버튼으로 접근성 설정에서 켜 주세요.";
+  $("bgsw").setAttribute("aria-checked", on ? "true" : "false");
+  $("bgstate").textContent = on
+    ? "켜짐: 다른 앱을 쓰는 중에도 키보드 소리가 나요."
+    : st.enabled
+      ? "설정에서는 켜져 있지만 아직 연결되지 않았어요. 접근성 설정에서 껐다가 다시 켜 보세요."
+      : "꺼짐: 오른쪽 스위치를 눌러 켜세요.";
+  $("bgdiag").textContent = "서비스 연결: " + (st.connected ? "됨" : "안 됨") + " · 서비스가 받은 키 입력: " + (st.count || 0) + "회";
+  $("bghelp").hidden = on;
   if (on) { $("gate").hidden = true; $("app").hidden = false; }
   else if (!ready) { $("gate").hidden = false; $("app").hidden = true; }
 }
 if (Native) {
   $("bg").hidden = false;
-  $("bgbtn").addEventListener("click", () => { Native.openSettings().catch(() => {}); });
+  const openSet = () => { Native.openSettings().catch(() => {}); };
+  $("bgsw").addEventListener("click", openSet);
+  $("bgset").addEventListener("click", openSet);
+  $("bgapp").addEventListener("click", () => { Native.openAppInfo().catch(() => {}); });
   pushPrefs();
   refreshSvc();
   setInterval(refreshSvc, 2000);

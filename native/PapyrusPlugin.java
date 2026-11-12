@@ -3,6 +3,7 @@ package com.haepari.papyrustyping;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.provider.Settings;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -22,6 +23,24 @@ public class PapyrusPlugin extends Plugin {
         JSObject r = new JSObject();
         r.put("enabled", PapyrusKeyService.isEnabled(getContext()));
         call.resolve(r);
+    }
+
+    @PluginMethod
+    public void getStatus(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("enabled", PapyrusKeyService.isEnabled(getContext()));
+        r.put("connected", PapyrusKeyService.connected);
+        r.put("count", PapyrusKeyService.keyCount);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void openAppInfo(PluginCall call) {
+        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:" + getContext().getPackageName()));
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(i);
+        call.resolve();
     }
 
     @PluginMethod

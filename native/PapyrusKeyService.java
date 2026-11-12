@@ -30,6 +30,9 @@ public class PapyrusKeyService extends AccessibilityService {
         "changemode", "esc", "function", "menu", "modifier", "printscreen"
     ));
 
+    public static volatile boolean connected = false;
+    public static volatile int keyCount = 0;
+
     private SoundPool pool;
     private final HashMap<String, Integer> ids = new HashMap<>();
     private final HashMap<String, Integer> streams = new HashMap<>();
@@ -37,6 +40,7 @@ public class PapyrusKeyService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        connected = true;
         AccessibilityServiceInfo info = getServiceInfo();
         if (info != null) {
             info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
@@ -61,6 +65,7 @@ public class PapyrusKeyService extends AccessibilityService {
     @Override
     protected boolean onKeyEvent(KeyEvent e) {
         if (e.getAction() != KeyEvent.ACTION_DOWN || e.getRepeatCount() > 0) return false;
+        keyCount++;
         if (pool == null) loadSounds();
         String name = soundFor(e);
         if (name != null) play(name);
@@ -144,6 +149,7 @@ public class PapyrusKeyService extends AccessibilityService {
     }
 
     private void release() {
+        connected = false;
         if (pool != null) {
             pool.release();
             pool = null;
